@@ -24,6 +24,10 @@ VL53L0X_RangingMeasurementData_t measure2;
     Keep sensor #1 awake, and now bring sensor #2 out of reset by setting its XSHUT pin high.
     Initialize sensor #2 with lox.begin(new_i2c_address) Pick any number but 0x29 and whatever you set the first sensor to
  */
+
+boolean *one_first;
+boolean *two_first;
+
 void setID() {
   // all reset
   digitalWrite(SHT_LOX1, LOW);    
@@ -56,34 +60,40 @@ void setID() {
   }
 }
 
-void read_dual_sensors() {
+void read_dual_sensors(boolean* one_first, boolean* two_first) {
   
   lox1.rangingTest(&measure1, false); // pass in 'true' to get debug data printout!
   lox2.rangingTest(&measure2, false); // pass in 'true' to get debug data printout!
 
-  // print sensor one reading
-  Serial.print("1: ");
-  if(measure1.RangeStatus != 4) {     // if not out of range
-    Serial.print(measure1.RangeMilliMeter);
-  } else {
-    Serial.print("Out of range");
-  }
-  
-  Serial.print(" ");
+  check_direction(measure1.RangeMilliMeter, measure2.RangeMilliMeter, one_first, two_first);
 
-  // print sensor two reading
-  Serial.print("2: ");
-  if(measure2.RangeStatus != 4) {
-    Serial.print(measure2.RangeMilliMeter);
-  } else {
-    Serial.print("Out of range");
-  }
-  
-  Serial.println();
+
+//  // print sensor one reading
+//  Serial.print("1: ");
+//  if(measure1.RangeStatus != 4) {     // if not out of range
+//    Serial.print(measure1.RangeMilliMeter);
+//  } else {
+//    Serial.print("Out of range");
+//  }
+//  
+//  Serial.print(" ");
+//
+//  // print sensor two reading
+//  Serial.print("2: ");
+//  if(measure2.RangeStatus != 4) {
+//    Serial.print(measure2.RangeMilliMeter);
+//  } else {
+//    Serial.print("Out of range");
+//  }
+//  
+//  Serial.println();
 }
+
 
 void setup() {
   Serial.begin(115200);
+  *one_first = false;
+  *two_first = false;
 
   // wait until serial port opens for native USB devices
   while (! Serial) { delay(1); }
@@ -104,8 +114,23 @@ void setup() {
  
 }
 
+
+void check_direction(int val_1, int val_2, boolean* one_first, boolean* two_first) {
+  if ((val_1 < 1000) && (!*two_first)) {
+    *one_first= true;
+    *two_first= false;
+    Serial.println("Sensor 1 first");
+  }
+  
+  if ((val_2 < 1000) && (!*one_first)) {
+    *two_first= true;
+    *one_first= false;
+    Serial.println("Sensor 2 first");
+  }
+}
+
+
 void loop() {
-   
-  read_dual_sensors();
+  read_dual_sensors(one_first, two_first);
   delay(40);
 }
