@@ -55,7 +55,7 @@ int REMOTE_PORT = 1234;
 
 // How often we want to send a message, specified in milliseconds
 // 15 minutes = 15 (min) * 60 (sec in min) * 1000 (ms in sec)
-unsigned long INTERVAL_MS = (unsigned long) 15 * 60 * 1000;
+unsigned long INTERVAL_MS = (unsigned long) 1 * 15 * 1000;
 
 void setup() {
   // Open a serial connection over USB for Serial Monitor
@@ -94,12 +94,13 @@ void setup() {
   }
 }
 
-
+/*
 const char test_msg[3] = {1, 5, 22};    // actual variable declaration
 const char *test_msg_ptr;               // pointer variable declaration
 test_msg_ptr = &test_msg;               // store address of var in pointer variable
 
 size_t = strlen(test_msg_ptr);
+*/
 
 void loop() {
   if (nbiot.isConnected()) {
@@ -111,13 +112,13 @@ void loop() {
     } else {
       Serial.println("Failed sending data");
     }
-
+    /*
     // Send test message to remote server
     if (true == nbiot.sendBytes(remoteIP, REMOTE_PORT, test_msg_ptr, leng)) {
       Serial.println("Successfully sent data");
     } else {
       Serial.println("Failed sending data");
-    }
+    }*/
 
     // Wait specified time before sending again (see definition above)
     delay(INTERVAL_MS);
