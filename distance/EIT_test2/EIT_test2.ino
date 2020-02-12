@@ -25,8 +25,7 @@ VL53L0X_RangingMeasurementData_t measure2;
     Initialize sensor #2 with lox.begin(new_i2c_address) Pick any number but 0x29 and whatever you set the first sensor to
  */
 
-boolean *one_first;
-boolean *two_first;
+boolean directionArray [3] = {false, false, true};
 
 void setID() {
   // all reset
@@ -60,77 +59,61 @@ void setID() {
   }
 }
 
-void read_dual_sensors(boolean* one_first, boolean* two_first) {
+void read_dual_sensors() {
   
   lox1.rangingTest(&measure1, false); // pass in 'true' to get debug data printout!
   lox2.rangingTest(&measure2, false); // pass in 'true' to get debug data printout!
 
-  check_direction(measure1.RangeMilliMeter, measure2.RangeMilliMeter, one_first, two_first);
-
-
-//  // print sensor one reading
-//  Serial.print("1: ");
-//  if(measure1.RangeStatus != 4) {     // if not out of range
-//    Serial.print(measure1.RangeMilliMeter);
-//  } else {
-//    Serial.print("Out of range");
-//  }
-//  
-//  Serial.print(" ");
-//
-//  // print sensor two reading
-//  Serial.print("2: ");
-//  if(measure2.RangeStatus != 4) {
-//    Serial.print(measure2.RangeMilliMeter);
-//  } else {
-//    Serial.print("Out of range");
-//  }
-//  
-//  Serial.println();
+  check_direction(measure1.RangeMilliMeter, measure2.RangeMilliMeter);
+  reset_direction(measure1.RangeMilliMeter, measure2.RangeMilliMeter);
 }
 
 
 void setup() {
   Serial.begin(115200);
-  *one_first = false;
-  *two_first = false;
 
   // wait until serial port opens for native USB devices
-  while (! Serial) { delay(1); }
+  while (! Serial) { delay(100); }
 
   pinMode(SHT_LOX1, OUTPUT);
   pinMode(SHT_LOX2, OUTPUT);
 
-  Serial.println("Shutdown pins inited...");
-
   digitalWrite(SHT_LOX1, LOW);
   digitalWrite(SHT_LOX2, LOW);
 
-  Serial.println("Both in reset mode...(pins are low)");
-  
-  
-  Serial.println("Starting...");
   setID();
  
 }
+void reset_direction(int val_1, int val_2){
+  if ((val_1 > 1000) && (val_2 > 1000)){
+    delay(10);
+    directionArray[0] = false;
+    directionArray[1] = false;
+    directionArray[2] = true;
+  }
+}
 
-
-void check_direction(int val_1, int val_2, boolean* one_first, boolean* two_first) {
-  if ((val_1 < 1000) && (!*two_first)) {
-    *one_first= true;
-    *two_first= false;
-    Serial.println("Sensor 1 first");
+void check_direction(int val_1, int val_2) {
+  if ((val_1 < 1000) && (!directionArray[1])) {
+    directionArray[0] = true;
+    directionArray[1] = false;
+    if (directionArray[2]){
+      directionArray[2] = false;
+      Serial.println("0");
+    }
   }
   
-  if ((val_2 < 1000) && (!*one_first)) {
-    *two_first= true;
-    *one_first= false;
-    Serial.println("Sensor 2 first");
+  if ((val_2 < 1000) && (!directionArray[0])) {
+    directionArray[0] = false;
+    directionArray[1] = true;
+    if (directionArray[2]){
+      directionArray[2] = false;
+      Serial.println("1");
+    }
   }
 }
 
 
 void loop() {
-  read_dual_sensors(one_first, two_first);
-  delay(40);
+  read_dual_sensors();
 }
