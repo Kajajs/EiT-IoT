@@ -7,11 +7,6 @@ class FlowPlotter:
 		self.comm_port = "COM4"
 		self.baud_rate = 115200
 		self.start_time = time.time()
-		self.passes = []
-		self.durartion = 10
-
-	def add_plot_data(self, timestamp, direction):
-		self.passes.append((timestamp - self.start_time, direction))
 
 	def run(self):
 		with serial.Serial(self.comm_port, self.baud_rate) as ser:
@@ -21,12 +16,31 @@ class FlowPlotter:
 					log.write(f"{data}:{time.time() - self.start_time}\n")
 
 	def plot(self):
-		pass
+		timestamp = [0.0]
+		passes = [0]
+		nr = 0
+		with open("log.txt", "r") as log:
+			lines = log.read()
+			lines = lines.split("\n")
+			for line in lines[0:-1]:
+				data = line.split(":")
+				timestamp.append(float(data[1]))
+				timestamp.append(float(data[1]))
+				if (int(data[0])):
+					passes.append(nr)
+					passes.append(nr - 1)
+					nr -= 1
+				else:
+					passes.append(nr)
+					passes.append(nr + 1)
+					nr += 1
+		
+
+		plt.plot(np.array(timestamp), np.array(passes))
+		plt.show()
 
 if __name__ == "__main__":
 	plotter = FlowPlotter()
-	#try:
-	plotter.run()
-	#except:
-		#print("Finish")
+	#plotter.run()
+	plotter.plot()
 
