@@ -30,18 +30,17 @@
    is mapped to USB, so we use SoftwareSerial on pin 10 and 11 instead.
 */
 #include <SoftwareSerial.h>
-//SoftwareSerial ublox(10, 11);
 #endif
 
 // Find addresses of devices
 
 // objects for the vl53l0x
-Adafruit_VL53L0X lox1 = Adafruit_VL53L0X();
-//Adafruit_VL53L0X lox2 = Adafruit_VL53L0X();
+Adafruit_VL53L0X *lox1 = Adafruit_VL53L0X();
+Adafruit_VL53L0X *lox2 = Adafruit_VL53L0X();
 
 // this holds the measurement
 VL53L0X_RangingMeasurementData_t measure1;
-//VL53L0X_RangingMeasurementData_t measure2;
+VL53L0X_RangingMeasurementData_t measure2;
 
 /*
     Reset all sensors by setting all of their XSHUT pins low for delay(10), then set all XSHUT high to bring out of reset
@@ -53,16 +52,8 @@ VL53L0X_RangingMeasurementData_t measure1;
  */
 
 
-
 boolean directionArray [3] = {false, false, true};
-//int sendArray [4] = {0,0,0,0};
-
-TelenorNBIoT nbiot;
-
-// The remote IP address to send data packets to
-// u-blox SARA N2 does not support DNS
-IPAddress remoteIP(172, 16, 15, 14);
-int REMOTE_PORT = 1234;
+int sendArray [4] = {0,0,0,0};
 
 // How often we want to send a message, specified in milliseconds
 // 15 minutes = 15 (min) * 60 (sec in min) * 1000 (ms in sec)
@@ -106,7 +97,7 @@ void setID() {
   digitalWrite(SHT_LOX2, LOW);
 
   // initing LOX1
-  if(!lox1.begin(LOX1_ADDRESS)) {
+  if(!lox1->begin(LOX1_ADDRESS)) {
     Serial.println(F("Failed to boot first VL53L0X"));
     while(1);
   }
@@ -115,18 +106,18 @@ void setID() {
   // activating LOX2
   digitalWrite(SHT_LOX2, HIGH);
   delay(10);
-   /*
+   
   //initing LOX2
-  if(!lox2.begin(LOX2_ADDRESS)) {
+  if(!lox2->begin(LOX2_ADDRESS)) {
     Serial.println(F("Failed to boot second VL53L0X"));
     while(1);
-  }*/
+  }
 }
 
 void read_dual_sensors() {
   
-  lox1.rangingTest(&measure1, false); // pass in 'true' to get debug data printout!
-  //lox2.rangingTest(&measure2, false); // pass in 'true' to get debug data printout!
+  lox1->rangingTest(&measure1, false); // pass in 'true' to get debug data printout!
+  lox2->rangingTest(&measure2, false); // pass in 'true' to get debug data printout!
 
   //check_direction(measure1.RangeMilliMeter, measure2.RangeMilliMeter);
   //reset_direction(measure1.RangeMilliMeter, measure2.RangeMilliMeter);
@@ -168,13 +159,35 @@ void find_devices(){
   }
 }
 
+void send_data(){
+  SoftwareSerial ublox(10, 11);
+
+  TelenorNBIoT nbiot;
+
+  // The remote IP address to send data packets to
+  // u-blox SARA N2 does not support DNS
+  IPAddress remoteIP(172, 16, 15, 14);
+  int REMOTE_PORT = 1234;
+
+  
+  ublox.begin(9600);
+
+  Serial.print("Connecting to NB-IoT module...\n");
+  while (!nbiot.begin(ublox)) {
+    Serial.println("Begin failed. Retrying...");
+    delay(1000);
+  }
+  
+  while (!nbiot.createSocket()) {
+    Serial.print("Error creating socket. Error code: ");
+    Serial.println(nbiot.errorCode(), DEC);
+    delay(100);
+  }
+}
 
 
 void setup() {
   find_devices();
-
-  //delete &sensor;
-  //delete &sensor2;
   
   Serial.begin(115200);
   //while (! Serial){ delay(100);}
@@ -191,21 +204,6 @@ void setup() {
 
   setID();
   green();
-  /*
-  ublox.begin(9600);
-
-  Serial.print("Connecting to NB-IoT module...\n");
-  while (!nbiot.begin(ublox)) {
-    Serial.println("Begin failed. Retrying...");
-    delay(1000);
-  }
-  
-  while (!nbiot.createSocket()) {
-    Serial.print("Error creating socket. Error code: ");
-    Serial.println(nbiot.errorCode(), DEC);
-    delay(100);
-  }*/
- 
 }
 /*
 void reset_direction(int val_1, int val_2){
@@ -260,53 +258,44 @@ void check_direction(int val_1, int val_2) {
 
   sendArray[3]++;
 }
-*/
-boolean should_send_data(){
-  return true;
-  //return sendArray[0] + sendArray[1] > 5);
-}
-/*
+
 void transmit_data(){
-  if (should_send_data()){
-    if (nbiot.isConnected()) {
-      // Successfully connected to the network
+  if (nbiot.isConnected()) {
+    // Successfully connected to the network
 
-      Serial.println("afsbhhasfjk:");
+    Serial.println("afsbhhasfjk:");
 
-      String sendString = String(sendArray[0]);
-    
-      Serial.println(sendString);
+    String sendString = String(sendArray[0]);
+  
+    Serial.println(sendString);
 
-
-
-      // Send message to remote server
-      if (nbiot.sendString(remoteIP, REMOTE_PORT, "Hello, this is not an Arduino calling")) {
-        Serial.println("Successfully sent data");
-      } else {
-        Serial.println("Failed sending data");
-      }
-      
-      // Send test message to remote server
-      if (true == nbiot.sendBytes(remoteIP, REMOTE_PORT, test_msg_ptr, leng)) {
-        Serial.println("Successfully sent data");
-      } else {
-        Serial.println("Failed sending data");
-      }
-
-      // Wait specified time before sending again (see definition above)
-      //delay(INTERVAL_MS);
+    // Send message to remote server
+    if (nbiot.sendString(remoteIP, REMOTE_PORT, "Hello, this is not an Arduino calling")) {
+      Serial.println("Successfully sent data");
     } else {
-      // Not connected yet. Wait 5 seconds before retrying.
-      Serial.println("Connecting...");
-      delay(5000);
+      Serial.println("Failed sending data");
     }
+    
+    // Send test message to remote server
+    if (true == nbiot.sendBytes(remoteIP, REMOTE_PORT, test_msg_ptr, leng)) {
+      Serial.println("Successfully sent data");
+    } else {
+      Serial.println("Failed sending data");
+    }
+
+    // Wait specified time before sending again (see definition above)
+    //delay(INTERVAL_MS);
+  } else {
+    // Not connected yet. Wait 5 seconds before retrying.
+    Serial.println("Connecting...");
+    delay(5000);
   }
 }
 */
 
 void loop() {
-  delay(20000);
   //read_dual_sensors();
-  //delay(1000);
+  Serial.println(sizeof(*lox1));
+  delay(1000);
   //transmit_data();
 }
