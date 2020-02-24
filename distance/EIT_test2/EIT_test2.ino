@@ -1,8 +1,8 @@
-#include "Adafruit_VL53L0X.h"
 #include <Wire.h>
 #include <VL53L0X.h>
 #include <Udp.h>
 #include <TelenorNBIoT.h>
+#include <SoftwareSerial.h>
 
 // address we will assign if dual sensor is present
 #define LOX1_ADDRESS 0x16
@@ -11,53 +11,25 @@
 #define YELLOW 7
 #define GREEN 6
 
-// set the pins to shutdown
-#define SHT_LOX1 7
-#define SHT_LOX2 6
-
-#include <TelenorNBIoT.h>
-
-#ifdef SERIAL_PORT_HARDWARE_OPEN
-/*
-   For Arduino boards with a hardware serial port separate from USB serial.
-   This is usually mapped to Serial1. Check which pins are used for Serial1 on
-   the board you're using.
-*/
-#define ublox SERIAL_PORT_HARDWARE_OPEN
-#else
-/*
-   For Arduino boards with only one hardware serial port (like Arduino UNO). It
-   is mapped to USB, so we use SoftwareSerial on pin 10 and 11 instead.
-*/
-#include <SoftwareSerial.h>
-#endif
-
-// Find addresses of devices
-
-// objects for the vl53l0x
-Adafruit_VL53L0X *lox1 = Adafruit_VL53L0X();
-Adafruit_VL53L0X *lox2 = Adafruit_VL53L0X();
-
-// this holds the measurement
-VL53L0X_RangingMeasurementData_t measure1;
-VL53L0X_RangingMeasurementData_t measure2;
-
-/*
-    Reset all sensors by setting all of their XSHUT pins low for delay(10), then set all XSHUT high to bring out of reset
-    Keep sensor #1 awake by keeping XSHUT pin high
-    Put all other sensors into shutdown by pulling XSHUT pins low
-    Initialize sensor #1 with lox.begin(new_i2c_address) Pick any number but 0x29 and it must be under 0x7F. Going with 0x30 to 0x3F is probably OK.
-    Keep sensor #1 awake, and now bring sensor #2 out of reset by setting its XSHUT pin high.
-    Initialize sensor #2 with lox.begin(new_i2c_address) Pick any number but 0x29 and whatever you set the first sensor to
- */
-
-
 boolean directionArray [3] = {false, false, true};
 int sendArray [4] = {0,0,0,0};
+int sensorRead [2] = {0,0};
 
-// How often we want to send a message, specified in milliseconds
-// 15 minutes = 15 (min) * 60 (sec in min) * 1000 (ms in sec)
-//unsigned long INTERVAL_MS = (unsigned long) 1 * 15 * 1000;
+VL53L0X sensor;
+VL53L0X sensor2;
+
+SoftwareSerial ublox(10, 11);
+
+TelenorNBIoT nbiot;
+
+IPAddress remoteIP(172, 16, 15, 14);
+int REMOTE_PORT = 1234;
+
+void redGreen(){
+  digitalWrite(RED, HIGH);
+  digitalWrite(YELLOW, LOW);
+  digitalWrite(GREEN, HIGH);
+}
 
 void red(){
   digitalWrite(RED, HIGH);
@@ -65,10 +37,22 @@ void red(){
   digitalWrite(GREEN, LOW);
 }
 
+void yellowRed(){
+  digitalWrite(RED, HIGH);
+  digitalWrite(YELLOW, HIGH);
+  digitalWrite(GREEN, LOW);
+}
+
 void yellow(){
   digitalWrite(RED, LOW);
   digitalWrite(YELLOW, HIGH);
   digitalWrite(GREEN, LOW);
+}
+
+void greenYellow(){
+  digitalWrite(RED, LOW);
+  digitalWrite(YELLOW, HIGH);
+  digitalWrite(GREEN, HIGH);
 }
 
 void green(){
@@ -82,51 +66,15 @@ void all(){
   digitalWrite(GREEN, HIGH);
 }
 
-void setID() {
-  // all reset
-  digitalWrite(SHT_LOX1, LOW);    
-  digitalWrite(SHT_LOX2, LOW);
-  delay(10);
-  // all unreset
-  digitalWrite(SHT_LOX1, HIGH);
-  digitalWrite(SHT_LOX2, HIGH);
-  delay(10);
-
-  // activating LOX1 and reseting LOX2
-  digitalWrite(SHT_LOX1, HIGH);
-  digitalWrite(SHT_LOX2, LOW);
-
-  // initing LOX1
-  if(!lox1->begin(LOX1_ADDRESS)) {
-    Serial.println(F("Failed to boot first VL53L0X"));
-    while(1);
-  }
-  delay(10);
-
-  // activating LOX2
-  digitalWrite(SHT_LOX2, HIGH);
-  delay(10);
-   
-  //initing LOX2
-  if(!lox2->begin(LOX2_ADDRESS)) {
-    Serial.println(F("Failed to boot second VL53L0X"));
-    while(1);
-  }
-}
-
 void read_dual_sensors() {
-  
-  lox1->rangingTest(&measure1, false); // pass in 'true' to get debug data printout!
-  lox2->rangingTest(&measure2, false); // pass in 'true' to get debug data printout!
+  sensorRead[0] = sensor.readRangeSingleMillimeters();
+  sensorRead[1] = sensor2.readRangeSingleMillimeters();
 
-  //check_direction(measure1.RangeMilliMeter, measure2.RangeMilliMeter);
-  //reset_direction(measure1.RangeMilliMeter, measure2.RangeMilliMeter);
+  check_direction();
+  reset_direction();
 }
 
-void find_devices(){
-
-  VL53L0X sensor;
-  VL53L0X sensor2;
+void init_devices(){
   pinMode(5, OUTPUT);
   pinMode(4, OUTPUT);
   digitalWrite(4, LOW);
@@ -147,67 +95,43 @@ void find_devices(){
   sensor2.init(true);
   delay(100);
   sensor2.setAddress((uint8_t)LOX2_ADDRESS);
-
-  byte count = 0;
-  for (byte i = 1; i < 120; i++)
-  {
-    Wire.beginTransmission (i);
-    if (Wire.endTransmission () == 0)
-    {
-      delay (1);
-    }
-  }
 }
-
-void send_data(){
-  SoftwareSerial ublox(10, 11);
-
-  TelenorNBIoT nbiot;
-
-  // The remote IP address to send data packets to
-  // u-blox SARA N2 does not support DNS
-  IPAddress remoteIP(172, 16, 15, 14);
-  int REMOTE_PORT = 1234;
-
-  
-  ublox.begin(9600);
-
-  Serial.print("Connecting to NB-IoT module...\n");
-  while (!nbiot.begin(ublox)) {
-    Serial.println("Begin failed. Retrying...");
-    delay(1000);
-  }
-  
-  while (!nbiot.createSocket()) {
-    Serial.print("Error creating socket. Error code: ");
-    Serial.println(nbiot.errorCode(), DEC);
-    delay(100);
-  }
-}
-
 
 void setup() {
-  find_devices();
-  
-  Serial.begin(115200);
-  //while (! Serial){ delay(100);}
   pinMode(RED, OUTPUT);
   pinMode(YELLOW, OUTPUT);
   pinMode(GREEN, OUTPUT);
+
   all();
+  
+  init_devices();
+  
+  Serial.begin(9600);
 
-  pinMode(SHT_LOX1, OUTPUT);
-  pinMode(SHT_LOX2, OUTPUT);
+  yellowRed();
 
-  digitalWrite(SHT_LOX1, LOW);
-  digitalWrite(SHT_LOX2, LOW);
+  ublox.begin(9600);
+  while (!nbiot.begin(ublox)) {
+    delay(1000);
+  }
 
-  setID();
+  greenYellow();
+
+  while (!nbiot.createSocket()) {
+    delay(100);
+  }
+
+  redGreen();
+
+  while (!nbiot.isConnected()){
+    delay(5000);
+  }
+
   green();
 }
-/*
-void reset_direction(int val_1, int val_2){
-  if ((val_1 > 1000) && (val_2 > 1000)){
+
+void reset_direction(){
+  if ((sensorRead[0] > 1000) && (sensorRead[1] > 1000)){
     delay(10);
     directionArray[0] = false;
     directionArray[1] = false;
@@ -227,14 +151,14 @@ void set_color(){
   }
 }
 
-void check_direction(int val_1, int val_2) {
-  if ((val_1 < 1000) && (!directionArray[1])) {
+void check_direction() {
+  if ((sensorRead[0] < 1000) && (!directionArray[1])) {
     directionArray[0] = true;
     directionArray[1] = false;
     if (directionArray[2]){
       directionArray[2] = false;
-      sendArray[0]++;
-      if (sendArray[2] < 6){
+      if (sendArray[2] < 8){
+        sendArray[0]++;
         sendArray[2]++;
       }
       set_color();
@@ -242,13 +166,13 @@ void check_direction(int val_1, int val_2) {
     }
   }
   
-  if ((val_2 < 1000) && (!directionArray[0])) {
+  if ((sensorRead[1] < 1000) && (!directionArray[0])) {
     directionArray[0] = false;
     directionArray[1] = true;
     if (directionArray[2]){
       directionArray[2] = false;
-      sendArray[1]++;
       if (sendArray[2] > 0){
+        sendArray[1]++;
         sendArray[2]--;
       }
       set_color();
@@ -259,43 +183,30 @@ void check_direction(int val_1, int val_2) {
   sendArray[3]++;
 }
 
+boolean shouldTransmitData(){
+  return sendArray[3] > 10000;
+}
+
+
 void transmit_data(){
   if (nbiot.isConnected()) {
-    // Successfully connected to the network
+    String sendString = String(sendArray[0]) + String("-") + String(sendArray[1]) + String("-") + String(sendArray[2]);
 
-    Serial.println("afsbhhasfjk:");
-
-    String sendString = String(sendArray[0]);
-  
-    Serial.println(sendString);
-
-    // Send message to remote server
-    if (nbiot.sendString(remoteIP, REMOTE_PORT, "Hello, this is not an Arduino calling")) {
-      Serial.println("Successfully sent data");
-    } else {
-      Serial.println("Failed sending data");
+    if (nbiot.sendString(remoteIP, REMOTE_PORT, sendString)) {
+      all();
+      sendArray[0] = 0;
+      sendArray[1] = 0;
+      sendArray[3] = 0;
+      delay(100);
+      set_color();
     }
-    
-    // Send test message to remote server
-    if (true == nbiot.sendBytes(remoteIP, REMOTE_PORT, test_msg_ptr, leng)) {
-      Serial.println("Successfully sent data");
-    } else {
-      Serial.println("Failed sending data");
-    }
-
-    // Wait specified time before sending again (see definition above)
-    //delay(INTERVAL_MS);
-  } else {
-    // Not connected yet. Wait 5 seconds before retrying.
-    Serial.println("Connecting...");
-    delay(5000);
   }
 }
-*/
+
 
 void loop() {
-  //read_dual_sensors();
-  Serial.println(sizeof(*lox1));
-  delay(1000);
-  //transmit_data();
+  read_dual_sensors();
+  if (shouldTransmitData()){
+    transmit_data();
+  }
 }
