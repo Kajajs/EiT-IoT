@@ -127,7 +127,7 @@ void setup() {
     delay(5000);
   }
 
-  green();
+  set_color();
 }
 
 void reset_direction(){
@@ -140,13 +140,13 @@ void reset_direction(){
 }
 
 void set_color(){
-  if (sendArray[2] < 2){
+  if (sendArray[2] < -4){
     green();
   }
-  if (sendArray[2] > 1 && sendArray[2] < 4){
+  if (sendArray[2] > -5 && sendArray[2] < 5){
     yellow();
   }
-  if (sendArray[2] > 3){
+  if (sendArray[2] > 4){
     red();
   }
 }
@@ -157,7 +157,7 @@ void check_direction() {
     directionArray[1] = false;
     if (directionArray[2]){
       directionArray[2] = false;
-      if (sendArray[2] < 8){
+      if (sendArray[2] < 40){
         sendArray[0]++;
         sendArray[2]++;
       }
@@ -171,7 +171,7 @@ void check_direction() {
     directionArray[1] = true;
     if (directionArray[2]){
       directionArray[2] = false;
-      if (sendArray[2] > 0){
+      if (sendArray[2] > -40){
         sendArray[1]++;
         sendArray[2]--;
       }
@@ -184,7 +184,7 @@ void check_direction() {
 }
 
 boolean shouldTransmitData(){
-  return sendArray[3] > 10000;
+  return sendArray[3] > 6000;
 }
 
 
