@@ -184,7 +184,7 @@ void check_direction() {
 }
 
 boolean shouldTransmitData(){
-  return sendArray[3] > 6000;
+  return sendArray[3] > 3000;
 }
 
 
