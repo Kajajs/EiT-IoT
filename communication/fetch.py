@@ -14,7 +14,7 @@ class Plotter:
     def fetch_data(self):
         return self.client.collection_data(self.collectionId, limit = 1)
     
-    def get_flow_data(self, starttime, stoptime):
+    def get_flow_data(self, starttime = 0, stoptime = 2000000000):
         data = []
         for i in self.fetch_data():
             if ((i.received.timestamp() > starttime) & (i.received.timestamp() < stoptime)):
@@ -47,6 +47,24 @@ class Plotter:
         #plt.plot(np.array(yplt), np.array(pltarr))
         plt.show()
 
+    def plot_total(self, data):
+        yplt = [0]
+        pltarr = [0]
+        for i in range(len(data)):
+            if (i > 0):
+                pltarr.append(data[i-1][2])
+                yplt.append(i)
+            pltarr.append(data[i][2])
+            yplt.append(i)
+
+        yplt = np.array(yplt)
+        pltarr = np.array(pltarr)
+        plt.title("Total amount of people in a room at given time")
+        plt.xlabel("Time (hour)")
+        plt.ylabel("People in room")
+        plt.plot((yplt / 24) + 9, pltarr + 20, color = "blue")
+        plt.show()
+
     def print_all(self):
         for i in self.fetch_data()[::-1]:
             print(f"{i.payload.decode('utf-8')} : {i.received}")
@@ -54,8 +72,15 @@ class Plotter:
                 
 if __name__ == "__main__":
     p = Plotter()
-    #p.print_all()
-    #exit()
+    if (False):
+        p.print_all()
+        exit()
+    
+    if (True):
+        data = p.get_flow_data(starttime = 1582717000.0)
+        p.plot_total(data)
+        exit()
+
     manualdata = [0,10,0,0,1,2,0,3,3,0,4]
     data = p.get_flow_data(1582705000.0, 1582707000.0)#1582704845.0)
     print(data)
