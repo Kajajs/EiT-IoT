@@ -22,7 +22,7 @@ String stringSend = "";
 
 void setup(){ 
   Serial.begin(9600);
-  /*
+  
   ublox.begin(9600);
   while (!nbiot.begin(ublox)) {
     delay(1000);
@@ -35,7 +35,7 @@ void setup(){
   while (!nbiot.isConnected()){
     delay(3000);
   }
-  */
+  
 }
 
 void read_data(){
@@ -55,13 +55,12 @@ void read_data(){
   //Serial.println(lm);
   stringSend += String(lm) + String(":");
   measure++;
-  Serial.println(lm);
 }
 
 boolean should_transmit_data(){
   return measure > 24;
 }
-/*
+
 void transmit_data(){
   if (nbiot.isConnected()) {
     if (nbiot.sendString(remoteIP, REMOTE_PORT, stringSend)) {
@@ -70,11 +69,11 @@ void transmit_data(){
     }
   }
 }
-*/
+
 void loop(){
   read_data();
-  //if (should_transmit_data()){
-    //transmit_data();
-  //}
+  if (should_transmit_data()){
+    transmit_data();
+  }
   
 }
