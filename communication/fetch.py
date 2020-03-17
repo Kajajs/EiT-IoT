@@ -83,9 +83,13 @@ class Plotter:
             pltarr.append(val * (1 - 0.0063 * (val - 50)))
         for i in range(1, len(pltarr)):
             if (pltarr[i] > border and pltarr[i-1] > border):
-                plt.plot(np.array([i-1,i]), np.array(pltarr[i-1:i+1]), color = "red")
+                plt.plot(np.array([i-1,i]) / 600 + 9, np.array(pltarr[i-1:i+1]), color = "red")
             else:
-                plt.plot(np.array([i-1,i]), np.array(pltarr[i-1:i+1]), color = "blue")
+                plt.plot(np.array([i-1,i]) / 600 + 9, np.array(pltarr[i-1:i+1]), color = "blue")
+
+        plt.title("Level of noise in a room at given time")
+        plt.xlabel("Time (hour)")
+        plt.ylabel("Noise (dB)")
         plt.show()
 
     def print_all(self):
